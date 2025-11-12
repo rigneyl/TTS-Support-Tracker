@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Customer Support Log</title>
+  <style>
+    /* ——— Minimal, crisp, print-friendly styles ——— */
+    :root{
+      --bg:#fff; --fg:#0a0a0a; --muted:#666; --line:#111; --soft:#e9e9e9; --accent:#000; --ok:#0a7c2f; --warn:#b21b1b;
+      --card:#fafafa; --shadow: 0 1px 0 rgba(0,0,0,.05), 0 8px 30px rgba(0,0,0,.04);
+    }
+    @media (prefers-color-scheme: dark){
+      :root{ --bg:#0f0f12; --fg:#f3f3f3; --muted:#bdbdbd; --line:#fff; --soft:#232326; --accent:#fff; --card:#15151a; }
+    }
+    html,body{height:100%}
+    *,*::before,*::after{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif}
+    .wrap{max-width:1100px;margin:32px auto;padding:0 16px}
+
+    .topbar{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:16px}
+    .title{font-weight:700;letter-spacing:.2px}
+    .sub{color:var(--muted);font-size:.9rem}
+
+    .row{display:flex;gap:12px;flex-wrap:wrap}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
+    .card.pad{padding:14px;overflow:hidden}
+    .ghost{border:1px dashed var(--line);background:transparent}
+
+    label{font-size:.85rem;color:var(--muted)}
+    input,select,textarea{width:100%;max-width:100%;display:block;padding:10px;border:1px solid var(--line);border-radius:10px;background:transparent;color:var(--fg);box-sizing:border-box}
+    textarea{min-height:70px}
+    .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:10px}
+    .col-3{grid-column:span 3}
+    .col-4{grid-column:span 4}
+    .col-6{grid-column:span 6}
+    .col-8{grid-column:span 8}
+    .col-12{grid-column:span 12}
+    @media(max-width:900px){.col-3,.col-4,.col-6,.col-8{grid-column:span 12}}
+
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--fg);cursor:pointer;user-select:none}
+    .btn:hover{box-shadow:0 0 0 3px var(--soft) inset}
+    .btn.primary{background:var(--accent);color:var(--bg)}
+    .btn.primary:hover{filter:brightness(0.92)}
+    .btn.small{padding:6px 10px;font-size:.85rem;border-radius:10px}
+    .badgelike{padding:6px 10px;border:1px solid var(--line);border-radius:999px}
+
+    table{width:100%;border-collapse:separate;border-spacing:0}
+    th,td{border-bottom:1px solid var(--soft);padding:10px 8px;text-align:left;vertical-align:top}
+    th{font-size:.85rem;color:var(--muted);position:sticky;top:0;background:var(--bg);z-index:1}
+    tr:hover td{background:rgba(127,127,127,.06)}
+    .tblwrap{overflow:auto;max-height:380px;border:1px solid var(--line);border-radius:12px}
+
+    .right{margin-left:auto}
+    .muted{color:var(--muted)}
+    .ok{color:var(--ok)}
+    .warn{color:var(--warn)}
+    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;}
+    .totals{display:flex;gap:10px;flex-wrap:wrap}
+
+    details>summary{cursor:pointer;list-style:none}
+    details>summary::-webkit-details-marker{display:none}
+    .chev{display:inline-block;transform:rotate(0);transition:.2s transform}
+    details[open] .chev{transform:rotate(90deg)}
+
+    .footerbar{margin-top:16px;display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:.9rem}
+    .footerbar .righttxt{opacity:.9}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <div class="title">Customer Support Log</div>
+        <div class="sub">Local‑first log for quick capture • Exports to CSV compatible with your spreadsheet</div>
+      </div>
+      <div class="row">
+        <button class="btn" id="importCsvBtn">Import CSV</button>
+        <input type="file" id="csvFile" accept=".csv" hidden>
+        <button class="btn" id="exportCsvBtn">Export CSV</button>
+        <button class="btn" id="clearBtn" title="Clear all entries">Clear</button>
+      </div>
+    </div>
+
+    <details class="card pad" id="formBlock" open>
+      <summary><span class="chev">▶</span> New support entry</summary>
+      <div class="grid" style="margin-top:10px">
+        <div class="col-3">
+          <label for="date">Date</label>
+          <input type="date" id="date">
+        </div>
+        <div class="col-4">
+          <label for="customer">Customer</label>
+          <input type="text" id="customer" placeholder="Customer name">
+        </div>
+        <div class="col-3">
+          <label for="method">Method of Contact</label>
+          <select id="method">
+            <option>Phone</option>
+            <option>Email</option>
+            <option>Chat</option>
+            <option>Onsite</option>
+            <option>Remote Session</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="col-4">
+          <label for="business">Business</label>
+          <input type="text" id="business" placeholder="Business name">
+        </div>
+        <div class="col-4">
+          <label for="phone">Contact Number</label>
+          <input type="tel" id="phone" placeholder="e.g., 0412 345 678">
+        </div>
+        <div class="col-4">
+          <label for="email">Email</label>
+          <input type="email" id="email" placeholder="name@example.com">
+        </div>
+        <div class="col-4">
+          <label for="product">Product / Package</label>
+          <input type="text" id="product" placeholder="e.g., TNT‑RCD, 3309BT Godex, etc.">
+        </div>
+        <div class="col-8">
+          <label for="issue">Issue (brief)</label>
+          <input type="text" id="issue" placeholder="Short description of the problem">
+        </div>
+        <div class="col-6">
+          <label for="resolution">Resolution</label>
+          <select id="resolution">
+            <option>Yes</option>
+            <option>No</option>
+            <option>Pending</option>
+          </select>
+        </div>
+        <div class="col-6">
+          <label for="resolutionDetails">Resolution details (optional)</label>
+          <input type="text" id="resolutionDetails" placeholder="What fixed it / next steps">
+        </div>
+        <div class="col-4">
+          <label for="duration">Duration</label>
+          <div class="row">
+            <input type="text" id="duration" placeholder="mm or hh:mm" class="mono" style="flex:1">
+            <button class="btn small" id="timerBtn" style="white-space:nowrap">Start Timer</button>
+          </div>
+        </div>
+        <div class="col-4">
+          <label for="staff">Staff Member</label>
+          <input type="text" id="staff" placeholder="Your name">
+        </div>
+        <!-- Optional extras to enrich data (you can ignore if not needed) -->
+        <div class="col-4">
+          <label for="category">Category (optional)</label>
+          <select id="category">
+            <option value="">—</option>
+            <option>How‑to</option>
+            <option>Troubleshoot</option>
+            <option>Hardware</option>
+            <option>Software</option>
+            <option>RCD Testing</option>
+            <option>Label/Printing</option>
+            <option>Billing/Account</option>
+          </select>
+        </div>
+        <div class="col-12">
+          <label for="notes">Notes (optional)</label>
+          <textarea id="notes" placeholder="Any extra context, ticket #, attachments link, follow‑up required, etc."></textarea>
+        </div>
+        <div class="col-12 row" style="justify-content:space-between;align-items:center">
+          <div class="muted">Tip: Use <span class="mono">Tab</span> to jump fields; <span class="mono">Ctrl/⌘+S</span> to save quickly.</div>
+          <div class="row">
+            <button class="btn" id="saveBtn">Save Entry</button>
+            <button class="btn" id="resetBtn">Reset</button>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <div class="row" style="margin:16px 0">
+      <div class="card pad" style="flex:1">
+        <div class="totals">
+          <div class="badgelike">Total sessions: <b id="totalSessions">0</b></div>
+          <div class="badgelike">Total duration: <b id="totalDuration">0m</b></div>
+          <div class="badgelike">Avg per session: <b id="avgDuration">0m</b></div>
+        </div>
+      </div>
+      <div class="card pad" style="flex:1">
+        <div class="row" style="align-items:flex-end">
+          <div style="flex:1">
+            <label for="q">Quick filter</label>
+            <input id="q" placeholder="Type to filter by customer, product, issue, staff, method…" />
+          </div>
+          <div>
+            <label for="from">From</label>
+            <input type="date" id="from">
+          </div>
+          <div>
+            <label for="to">To</label>
+            <input type="date" id="to">
+          </div>
+          <div>
+            <label for="who">Staff</label>
+            <input id="who" placeholder="Name" />
+          </div>
+          <button class="btn" id="clearFilters" style="align-self:center">Clear filters</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tblwrap card">
+      <table id="logTable">
+        <thead>
+          <tr>
+            <th style="min-width:110px">Date</th>
+            <th style="min-width:160px">Customer</th>
+            <th style="min-width:160px">Business</th>
+            <th>Contact</th>
+            <th>Email</th
+            <th>Method</th>
+            <th style="min-width:160px">Product / Package</th>
+            <th style="min-width:220px">Issue</th>
+            <th style="min-width:200px">Resolution</th>
+            <th>Duration</th>
+            <th>Staff</th>
+            <th class="muted">Notes</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <!-- rows injected here -->
+        </tbody>
+      </table>
+    </div>
+
+    <div class="footerbar">
+      <div>Support Tracker · © 2025 Luke Rigney · </div>
+      <div class="righttxt">Test and Tag Supplies.</div>
+    </div>
+  </div>
+
+  <script>
+    // ——— Local-first support logger ———
+    // Storage key
+    const KEY = 'support-log-v1';
+
+    // Elements
+    const els = {
+      date: document.getElementById('date'),
+      customer: document.getElementById('customer'),
+      business: document.getElementById('business'),
+      phone: document.getElementById('phone'),
+      email: document.getElementById('email'),
+      method: document.getElementById('method'),
+      product: document.getElementById('product'),
+      issue: document.getElementById('issue'),
+      resolution: document.getElementById('resolution'),
+      resolutionDetails: document.getElementById('resolutionDetails'),
+      duration: document.getElementById('duration'),
+      staff: document.getElementById('staff'),
+      category: document.getElementById('category'),
+      notes: document.getElementById('notes'),
+      saveBtn: document.getElementById('saveBtn'),
+      resetBtn: document.getElementById('resetBtn'),
+      timerBtn: document.getElementById('timerBtn'),
+      tbody: document.getElementById('tbody'),
+      totalSessions: document.getElementById('totalSessions'),
+      totalDuration: document.getElementById('totalDuration'),
+      avgDuration: document.getElementById('avgDuration'),
+      q: document.getElementById('q'),
+      from: document.getElementById('from'),
+      to: document.getElementById('to'),
+      who: document.getElementById('who'),
+      clearFilters: document.getElementById('clearFilters'),
+      exportCsvBtn: document.getElementById('exportCsvBtn'),
+      importCsvBtn: document.getElementById('importCsvBtn'),
+      csvFile: document.getElementById('csvFile'),
+      clearBtn: document.getElementById('clearBtn'),
+      termsLink: document.getElementById('termsLink'),
+      privacyLink: document.getElementById('privacyLink'),
+    };
+
+    // Defaults
+    els.date.valueAsDate = new Date();
+
+    // State
+    let entries = load();
+    let editIndex = null;
+    let timerStart = null;
+
+    function load(){
+      try{ return JSON.parse(localStorage.getItem(KEY)) || [] }catch(_){ return [] }
+    }
+    function persist(){ localStorage.setItem(KEY, JSON.stringify(entries)) }
+
+    function asMinutes(val){
+      // Accept mm or hh:mm
+      if(!val) return 0;
+      const s = String(val).trim();
+      if(/^\d+$/.test(s)) return parseInt(s,10);
+      const m = s.match(/^(\d{1,2}):(\d{2})$/);
+      if(m){ return parseInt(m[1],10)*60 + parseInt(m[2],10) }
+      // fallback try minutes float
+      const n = Number(s);
+      return Number.isFinite(n) ? Math.round(n) : 0;
+    }
+    function fmtMinutes(min){
+      const h = Math.floor(min/60), m = min%60;
+      return h>0 ? `${h}:${String(m).padStart(2,'0')}` : `${m}m`;
+    }
+
+    function clearForm(){
+      editIndex = null;
+      els.date.valueAsDate = new Date();
+      els.customer.value = '';
+      els.business.value = '';
+      els.phone.value = '';
+      els.email.value = '';
+      els.method.value = 'Phone';
+      els.product.value = '';
+      els.issue.value = '';
+      els.resolution.value = 'Yes';
+      els.resolutionDetails.value = '';
+      els.duration.value = '';
+      els.staff.value = '';
+      els.category.value = '';
+      els.notes.value = '';
+      els.saveBtn.textContent = 'Save Entry';
+    }
+
+    function currentFilters(){
+      return {
+        q: els.q.value.trim().toLowerCase(),
+        from: els.from.value ? new Date(els.from.value) : null,
+        to: els.to.value ? new Date(els.to.value) : null,
+        who: els.who.value.trim().toLowerCase(),
+      }
+    }
+
+    function render(){
+      const f = currentFilters();
+      let filtered = entries.filter(e=>{
+        const d = new Date(e.date);
+        if(f.from && d < f.from) return false;
+        if(f.to){ const end = new Date(f.to); end.setHours(23,59,59,999); if(d> end) return false }
+        if(f.who && !(e.staff||'').toLowerCase().includes(f.who)) return false;
+        if(f.q){
+          const blob = [e.customer,e.business,e.phone,e.email,e.method,e.product,e.issue,e.staff,e.resolution,e.resolutionDetails,e.notes].join(' \u2022 ').toLowerCase();
+          if(!blob.includes(f.q)) return false;
+        }
+        return true;
+      });
+
+      els.tbody.innerHTML = '';
+      let totalMin = 0;
+      filtered.forEach((e,i)=>{
+        totalMin += e.durationMin||0;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${e.date||''}</td>
+          <td>${esc(e.customer)}</td>
+          <td>${esc(e.business||'')}</td>
+          <td>${esc(e.phone||'')}</td>
+          <td>${esc(e.email||'')}</td>
+          <td>${esc(e.method)}
+          <td>${esc(e.product)}</td>
+          <td>${esc(e.issue)}</td>
+          <td>${esc(e.resolution)}${e.resolutionDetails? ' — '+esc(e.resolutionDetails): ''}</td>
+          <td class="mono">${e.durationMin? fmtMinutes(e.durationMin): ''}</td>
+          <td>${esc(e.staff)}</td>
+          <td class="muted">${esc(e.notes||'')}</td>
+          <td>
+            <button class="btn small" data-edit="${i}">Edit</button>
+            <button class="btn small" data-del="${i}">Del</button>
+          </td>
+        `;
+        els.tbody.appendChild(tr);
+      });
+
+      els.totalSessions.textContent = filtered.length;
+      els.totalDuration.textContent = fmtMinutes(totalMin);
+      els.avgDuration.textContent = filtered.length ? fmtMinutes(Math.round(totalMin/filtered.length)) : '0m';
+    }
+
+    function esc(s){ return String(s||'').replace(/[&<>"']/g, c=> ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c])) }
+
+    function saveEntry(){
+      const e = {
+        date: els.date.value || new Date().toISOString().slice(0,10),
+        customer: els.customer.value.trim(),
+        business: els.business.value.trim(),
+        phone: els.phone.value.trim(),
+        email: els.email.value.trim(),
+        method: els.method.value,
+        product: els.product.value.trim(),
+        issue: els.issue.value.trim(),
+        resolution: els.resolution.value,
+        resolutionDetails: els.resolutionDetails.value.trim(),
+        durationMin: asMinutes(els.duration.value),
+        staff: els.staff.value.trim(),
+        category: els.category.value,
+        notes: els.notes.value.trim(),
+        ts: Date.now(),
+      };
+      if(editIndex!=null){ entries[editIndex] = e } else { entries.push(e) }
+      persist();
+      render();
+      clearForm();
+      // keep form open and focus customer for speed entry
+      document.getElementById('customer').focus();
+    }
+
+    function handleTableClick(ev){
+      const e = ev.target;
+      const idx = e.getAttribute('data-edit');
+      const del = e.getAttribute('data-del');
+      if(idx!=null){
+        const item = entries[idx];
+        editIndex = Number(idx);
+        els.date.value = item.date;
+        els.customer.value = item.customer;
+        els.business.value = item.business || '';
+        els.phone.value = item.phone || '';
+        els.email.value = item.email || '';
+        els.method.value = item.method;
+        els.product.value = item.product;
+        els.issue.value = item.issue;
+        els.resolution.value = item.resolution;
+        els.resolutionDetails.value = item.resolutionDetails;
+        els.duration.value = item.durationMin ? fmtMinutes(item.durationMin).replace('m','') : '';
+        els.staff.value = item.staff;
+        els.category.value = item.category || '';
+        els.notes.value = item.notes || '';
+        els.saveBtn.textContent = 'Update Entry';
+        document.getElementById('formBlock').open = true;
+        window.scrollTo({top:0,behavior:'smooth'});
+      }
+      if(del!=null){
+        const i = Number(del);
+        if(confirm('Delete this entry?')){
+          entries.splice(i,1); persist(); render();
+        }
+      }
+    }
+
+    // CSV helpers — export exactly the requested columns order
+    // Columns: Date, Customer, Method of Contact, Product / Package, Issue, Resolution, Duration, Staff Member
+    function makeCsv(){
+      const header = ['Date','Customer','Business','Contact Number','Email','Method of Contact','Product / Package','Issue','Resolution','Duration','Staff Member'];
+      const rows = entries.map(e=>[
+        e.date,
+        e.customer,
+        e.business||'',
+        e.phone||'',
+        e.email||'',
+        e.method,
+        e.product,
+        e.issue,
+        e.resolution + (e.resolutionDetails? ' — ' + e.resolutionDetails : ''),
+        e.durationMin? fmtMinutes(e.durationMin).replace('m',''): '',
+        e.staff
+      ]);
+      return [header, ...rows].map(r=>r.map(csvCell).join(',')).join('
+');
+    }
+    function csvCell(v){
+      const s = String(v??'');
+      if(/[",\n]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+      return s;
+    }
+    function download(filename, text){
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([text],{type:'text/csv'}));
+      a.download = filename; a.click();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+    }
+
+    function parseCsv(text){
+      // tiny CSV parser (no external libs). Handles quotes and commas.
+      const lines = text.replace(/\r\n?/g,'\n').split('\n');
+      const out = [];
+      const parseLine = (line)=>{
+        const cells=[]; let cur=''; let q=false;
+        for(let i=0;i<line.length;i++){
+          const ch=line[i];
+          if(q){
+            if(ch==='"' && line[i+1]==='"'){ cur+='"'; i++; }
+            else if(ch==='"'){ q=false; }
+            else cur+=ch;
+          }else{
+            if(ch==='"') q=true;
+            else if(ch===','){ cells.push(cur); cur=''; }
+            else cur+=ch;
+          }
+        }
+        cells.push(cur); return cells;
+      };
+      const header = parseLine(lines.shift()||'');
+      lines.forEach(l=>{ if(!l.trim()) return; const c=parseLine(l);
+        const rec = Object.fromEntries(header.map((h,i)=>[h.trim(), c[i]||'']));
+        out.push(rec);
+      });
+      return out;
+    }
+
+    function importCsvRecords(recs){
+      // Expect headers as per makeCsv()
+      recs.forEach(r=>{
+        const dur = (r['Duration']||'').trim();
+        entries.push({
+          date: (r['Date']||'').trim(),
+          customer: (r['Customer']||'').trim(),
+          business: (r['Business']||'').trim(),
+          phone: (r['Contact Number']||'').trim(),
+          email: (r['Email']||'').trim(),
+          method: (r['Method of Contact']||'').trim()||'Phone',
+          product: (r['Product / Package']||'').trim(),
+          issue: (r['Issue']||'').trim(),
+          resolution: (r['Resolution']||'').trim().split(' — ')[0]||'Yes',
+          resolutionDetails: ((r['Resolution']||'').split(' — ')[1]||'').trim(),
+          durationMin: asMinutes(dur),
+          staff: (r['Staff Member']||'').trim(),
+          category:'', notes:'', ts: Date.now(),
+        });
+      });
+      persist(); render();
+    });
+      });
+      persist(); render();
+    }
+
+    // Timer
+    function toggleTimer(){
+      if(!timerStart){
+        timerStart = Date.now();
+        els.timerBtn.textContent = 'Stop Timer';
+        els.timerBtn.classList.add('primary');
+      }else{
+        const ms = Date.now() - timerStart; timerStart = null;
+        const min = Math.max(1, Math.round(ms/60000));
+        els.duration.value = String(min);
+        els.timerBtn.textContent = 'Start Timer';
+        els.timerBtn.classList.remove('primary');
+      }
+    }
+
+    // Events
+    els.saveBtn.addEventListener('click', saveEntry);
+    els.resetBtn.addEventListener('click', clearForm);
+    els.timerBtn.addEventListener('click', toggleTimer);
+    els.tbody.addEventListener('click', handleTableClick);
+    [els.q,els.from,els.to,els.who].forEach(x=> x.addEventListener('input', render));
+    els.clearFilters.addEventListener('click', ()=>{ els.q.value=''; els.from.value=''; els.to.value=''; els.who.value=''; render(); });
+
+    els.exportCsvBtn.addEventListener('click', ()=>{
+      const csv = makeCsv();
+      const stamp = new Date().toISOString().slice(0,10);
+      download(`support-log-${stamp}.csv`, csv);
+    });
+
+    els.importCsvBtn.addEventListener('click', ()=> els.csvFile.click());
+    els.csvFile.addEventListener('change', ()=>{
+      const f = els.csvFile.files[0]; if(!f) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        try{ const recs = parseCsv(String(e.target.result)); importCsvRecords(recs) }
+        catch(err){ alert('Could not parse CSV: '+err.message) }
+      };
+      reader.readAsText(f);
+      els.csvFile.value = '';
+    });
+
+    els.clearBtn.addEventListener('click', ()=>{
+      if(confirm('Delete ALL entries from this browser?')){ entries = []; persist(); render(); }
+    });
+
+    // Keyboard quick-save
+    window.addEventListener('keydown', (e)=>{
+      if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='s'){ e.preventDefault(); saveEntry(); }
+    });
+
+    // Footer links (inline stub pages)
+    els.termsLink.addEventListener('click', (e)=>{ e.preventDefault();
+      alert('Terms: This local tool stores data only in your browser. You are responsible for any data you export or share. No warranties.');
+    });
+    els.privacyLink.addEventListener('click', (e)=>{ e.preventDefault();
+      alert('Privacy: Data never leaves your browser unless you export CSV.');
+    });
+
+    // Initial paint
+    render();
+  </script>
+
+  <!--
+    HOW TO USE
+    1) Fill the form and click "Save Entry" (or press Ctrl/⌘+S).
+    2) Use the timer to capture call duration; it will fill the Duration field in minutes.
+    3) Filter the table by text, date range, or staff name.
+    4) Export CSV: creates columns matching the requested spreadsheet headers.
+       Headers: Date, Customer, Method of Contact, Product / Package, Issue, Resolution, Duration, Staff Member
+       Note: Resolution details are appended to the single Resolution column using an em dash (—).
+    5) Import CSV: load a .csv with the same headers to merge into the log.
+    6) All data is stored locally in your browser (localStorage). Clearing browser storage will remove it.
+
+    OPTIONAL FIELDS INCLUDED
+      • Category, Notes — helpful for later analysis but ignored in CSV export to keep compatibility.
+
+    IDEAS FOR EXTRA CAPTURE (if you want later):
+      • Ticket/Case ID • Priority/Severity • Follow‑up due date • Billable? (Y/N) • SLA breached? (Y/N)
+      • Root cause category • Attachments/Link • Customer contact person • Account tier
+  -->
+</body>
+</html>
